@@ -20,6 +20,16 @@ Parameters:
     Description: Name for this service; used in pipeline names
     Type: String
     Default: HelloWorld
+  CodeBuildEnvironment:
+    Type: String
+    Default: "eb-python-2.6-amazonlinux-64:2.1.6"
+    Description: Docker image to use for CodeBuild container - Use http://amzn.to/2mjCI91 for reference
+  BuilderVPC:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID that AMI Builder will use to launch temporary resource
+  BuilderPublicSubnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: Public Subnet ID that AMI Builder will use to launch temporary resource
 
 Resources:
 
@@ -64,6 +74,63 @@ Resources:
               Bool:
                 'aws:SecureTransport': false
   
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: "/managed/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/PowerUserAccess"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: "CodeBuildToCWL"
+                Effect: Allow
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ServiceName}_build"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ServiceName}_build:*"
+              - Sid: "CodeBuildToS3ArtifactRepo"
+                Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:PutObject"
+                Resource: !Sub "arn:aws:s3:::${BuildArtifactsBucket}/*"
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${ServiceName}_AMI_provisioning_build"
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: !Sub "aws/codebuild/${CodeBuildEnvironment}"
+        EnvironmentVariables:
+          - Name: BUILD_OUTPUT_BUCKET
+            Value: !Ref BuildArtifactsBucket
+          - Name: BUILD_VPC_ID
+            Value: !Ref BuilderVPC
+          - Name: BUILD_SUBNET_ID
+            Value: !Ref BuilderPublicSubnet
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        Type: CODEPIPELINE
+
   PipelineWebhook:
     Type: 'AWS::CodePipeline::Webhook'
     Properties:
@@ -114,7 +181,7 @@ Resources:
       ArtifactStore:
         Location: !Ref BuildArtifactsBucket
         Type: S3
-      Name: !Sub ${ServiceName}_pipeline
+      Name: !Sub ${ServiceName}_AMI_provisioning_pipeline
       RoleArn: !GetAtt PipelineExecutionRole.Arn
       Stages:
         - Name: Source
@@ -134,14 +201,20 @@ Resources:
                 OAuthToken: !Ref GitHubOAuthToken
                 PollForSourceChanges: false
               RunOrder: 1
-        - Name: Echo
+        - Name: Build
           Actions:
-            - Name: EchoAction
+            - Name: CodeBuild
               ActionTypeId:
-                Category: Approval
+                Category: Build
                 Owner: AWS
+                Provider: CodeBuild
                 Version: 1
-                Provider: Manual
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceZip
+              OutputArtifacts:
+                - Name: BuiltZip
               RunOrder: 2
 Outputs:
   ArtifactRepository:
