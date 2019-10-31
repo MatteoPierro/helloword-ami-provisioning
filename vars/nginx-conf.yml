@@ -1,0 +1,95 @@
+---
+
+nginx_http_template_enable: true
+nginx_http_template:
+  default:
+    template_file: http/default.conf.j2
+    conf_file_name: default.conf
+    conf_file_location: /etc/nginx/conf.d/
+    port: 80
+    listen:
+      listen_localhost:
+        #ip: 0.0.0.0
+        port: 80
+        opts:
+          - default_server
+    server_name: localhost
+    error_page: /usr/share/nginx/html
+    autoindex: false
+    reverse_proxy:
+      locations:
+        frontend:
+          location: /
+          proxy_pass: http://frontend_servers/
+        backend:
+          location: /backend
+          proxy_pass: http://backend_servers/
+    upstreams:
+      upstream_1:
+        name: frontend_servers
+        lb_method: least_conn
+        zone_name: frontend
+        zone_size: 64k
+        sticky_cookie: false
+        servers:
+          frontend_server_1:
+            address: 0.0.0.0
+            port: 8008
+            weight: 1
+            health_check: max_fails=3 fail_timeout=5s
+      upstream_2:
+        name: backend_servers
+        lb_method: least_conn
+        zone_name: backend
+        zone_size: 64k
+        sticky_cookie: false
+        servers:
+          backend_server_1:
+            address: 0.0.0.0
+            port: 8009
+            weight: 1
+            health_check: max_fails=3 fail_timeout=5s
+  frontend:
+    template_file: http/default.conf.j2
+    conf_file_name: frontend_default.conf
+    conf_file_location: /etc/nginx/conf.d/
+    port: 8008
+    listen:
+      listen_localhost:
+        ip: 0.0.0.0
+        port: 8008
+        opts: []
+    server_name: localhost
+    error_page: /usr/share/nginx/html
+    autoindex: false
+    web_server:
+      locations:
+        frontend_site:
+          location: /
+          proxy_hide_headers:
+            - X-Powered-By
+          html_file_location: /usr/share/frontend/html
+          html_file_name: index.html
+          autoindex: false
+      http_demo_conf: false
+  backend:
+    template_file: http/default.conf.j2
+    conf_file_name: backend_default.conf
+    conf_file_location: /etc/nginx/conf.d/
+    port: 8009
+    listen:
+      listen_localhost:
+        ip: 0.0.0.0
+        port: 8009
+        opts: []
+    server_name: localhost
+    error_page: /usr/share/nginx/html
+    autoindex: false
+    web_server:
+      locations:
+        backend_site:
+          location: /
+          html_file_location: /usr/share/backend/html
+          html_file_name: index.html
+          autoindex: false
+      http_demo_conf: false

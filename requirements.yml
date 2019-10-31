@@ -1,0 +1,3 @@
+- src: nginxinc.nginx
+- src: geerlingguy.postgresql
+- src: geerlingguy.nodejs

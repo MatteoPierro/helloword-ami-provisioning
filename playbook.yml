@@ -1,0 +1,27 @@
+---
+
+- hosts: all
+  become: true
+  roles:
+    - nginxinc.nginx
+    - geerlingguy.nodejs
+    - geerlingguy.postgresql
+  vars_files:
+    - nginx-conf.yml
+  tasks:
+    - name: create backend folder
+      file:
+        path: /usr/share/backend/html
+        state: directory
+    - name: copy backend file
+      copy:
+        src: backend.html
+        dest: /usr/share/backend/html/index.html
+    - name: create frontend folder
+      file:
+        path: /usr/share/frontend/html
+        state: directory
+    - name: copy frontend file
+      copy:
+        src: frontend.html
+        dest: /usr/share/frontend/html/index.html
