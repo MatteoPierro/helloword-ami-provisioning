@@ -4,10 +4,8 @@
   become: true
   roles:
     - nginxinc.nginx
-    - geerlingguy.nodejs
-    - geerlingguy.postgresql
   vars_files:
-    - nginx-conf.yml
+    - vars/nginx-conf.yml
   tasks:
     - name: create backend folder
       file:
@@ -15,7 +13,7 @@
         state: directory
     - name: copy backend file
       copy:
-        src: backend.html
+        src: webpages/backend.html
         dest: /usr/share/backend/html/index.html
     - name: create frontend folder
       file:
@@ -23,5 +21,5 @@
         state: directory
     - name: copy frontend file
       copy:
-        src: frontend.html
+        src: webpages/frontend.html
         dest: /usr/share/frontend/html/index.html
