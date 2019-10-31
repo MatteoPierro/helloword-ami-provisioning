@@ -52,7 +52,7 @@
       "playbook_file": "playbook.yml",
       "host_vars": "vars",
       "playbook_dir": ".",
-      "galaxy_file": "requirements.yaml"
+      "galaxy_file": "requirements.yml"
     },
     {
       "type": "shell",
