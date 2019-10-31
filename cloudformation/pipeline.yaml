@@ -174,7 +174,17 @@ Resources:
                 Resource:
                   - !Sub "arn:aws:s3:::${BuildArtifactsBucket}"
                   - !Sub "arn:aws:s3:::${BuildArtifactsBucket}/*"
-    
+        - PolicyName: CodePipelineBuildAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - "codebuild:StartBuild"
+                  - "codebuild:StopBuild"
+                  - "codebuild:BatchGetBuilds"
+                Effect: Allow
+                Resource: !GetAtt CodeBuildProject.Arn
+                
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:

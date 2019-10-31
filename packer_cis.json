@@ -50,9 +50,7 @@
     {
       "type": "ansible-local",
       "playbook_file": "playbook.yml",
-      "host_vars": [
-        "vars"
-      ],
+      "host_vars": "vars",
       "playbook_dir": ".",
       "galaxy_file": "requirements.yaml"
     },
