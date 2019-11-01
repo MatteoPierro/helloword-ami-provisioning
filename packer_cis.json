@@ -12,10 +12,10 @@
     "source_ami_filter": {
       "filters": {
         "virtualization-type": "hvm",
-        "name": "Centos Atomic Host 7 x86_64 HVM EBS 20160130_01",
+        "name": "CentOS Linux 7 x86_64 HVM EBS ENA*",
         "root-device-type": "ebs"
       },
-      "owners": ["410186602215"],
+      "owners": ["679593333241"],
       "most_recent": true
     },
     "instance_type": "t2.micro",
