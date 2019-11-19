@@ -1,3 +1,2 @@
 - src: nginxinc.nginx
-- src: geerlingguy.postgresql
-- src: geerlingguy.nodejs
+- src: rvm.ruby

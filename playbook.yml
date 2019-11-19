@@ -4,8 +4,11 @@
   become: true
   roles:
     - nginxinc.nginx
+    - rvm.ruby
   vars_files:
     - vars/nginx-conf.yml
+  vars:
+    - rvm1_user: 'root'
   tasks:
     - name: create backend folder
       file:
@@ -23,3 +26,10 @@
       copy:
         src: webpages/frontend.html
         dest: /usr/share/frontend/html/index.html
+    - name: download codedeploy
+      get_url:
+        url: https://aws-codedeploy-eu-west-1.s3.amazonaws.com/latest/install
+        dest: /tmp
+        mode: '0775'
+    - name: install codedeploy
+      command: /tmp/install auto
