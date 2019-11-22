@@ -12,20 +12,8 @@
   tasks:
     - name: create backend folder
       file:
-        path: /usr/share/backend/html
+        path: /usr/etc/website/html
         state: directory
-    - name: copy backend file
-      copy:
-        src: webpages/backend.html
-        dest: /usr/share/backend/html/index.html
-    - name: create frontend folder
-      file:
-        path: /usr/share/frontend/html
-        state: directory
-    - name: copy frontend file
-      copy:
-        src: webpages/frontend.html
-        dest: /usr/share/frontend/html/index.html
     - name: download codedeploy
       get_url:
         url: https://aws-codedeploy-eu-west-1.s3.amazonaws.com/latest/install
