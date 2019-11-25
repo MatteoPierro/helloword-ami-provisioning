@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: helloworld-application
+
+  EC2ImageId:
+    Type: String
+    Description: The AMI id that will be used for the EC2 instance.
+
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: The subnet in which to start up the EC2 instance.
+
+  BucketName:
+    Type: String
+    Description: The bucket name where the artefacts are stored.
+
+  ArtefactName:
+    Type: String
+    Description: The name of the artefact inside the S3 bucket.
+
+# what we'll need:
+# - deployment group
+# - deployment application
+# - s3 bucket from where the source should come
+# - service role
+# - compute platform: Server
+Resources:
+  CodeDeployServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "codedeploy.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      # TODO: limit this policy...
+      Policies:
+        - PolicyName: CodeDeployPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - "codedeploy:*"
+                Effect: Allow
+                Resource: "*"
+
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Ref ApplicationName
+
+  CodeDeployConfiguration:
+    Type: AWS::CodeDeploy::DeploymentConfig
+    Properties:
+      MinimumHealthyHosts:
+        Type: FLEET_PERCENT
+        Value: 0
+
+  CodeDeployDeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties:
+      ApplicationName: !Ref ApplicationName
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
+      DeploymentConfigName: !Ref CodeDeployConfiguration
+      Deployment:
+        Revision:
+          S3Location:
+            Bucket: !Ref BucketName
+            Key: !Ref ArtefactName
+            BundleType: zip
+
+
+# Outputs:
