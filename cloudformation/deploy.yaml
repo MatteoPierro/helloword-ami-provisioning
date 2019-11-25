@@ -4,6 +4,27 @@ Parameters:
     Type: String
     Default: helloworld-application
 
+  BranchName:
+    Description: GitHub branch name
+    Type: String
+    Default: master
+
+  RepositoryName:
+    Description: GitHub repository name
+    Type: String
+    Default: test
+
+  GitHubOwner:
+    Type: String
+
+  GitHubSecret:
+    Type: String
+    NoEcho: true
+
+  GitHubOAuthToken:
+    Type: String
+    NoEcho: true
+
   EC2ImageId:
     Type: String
     Description: The AMI id that will be used for the EC2 instance.
@@ -12,13 +33,19 @@ Parameters:
     Type: AWS::EC2::Subnet::Id
     Description: The subnet in which to start up the EC2 instance.
 
-  BucketName:
-    Type: String
-    Description: The bucket name where the artefacts are stored.
+  SecurityGroups:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: The security groups to attach to the EC2 instance.
 
-  ArtefactName:
-    Type: String
-    Description: The name of the artefact inside the S3 bucket.
+  AvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: The availability zone where the EC2 instance will be launched.
+    Default: eu-west-1a
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: The key-pair name which will be used to authenticate users that SSH into the machine.
+    Default: default
 
 # what we'll need:
 # - deployment group
@@ -27,6 +54,86 @@ Parameters:
 # - service role
 # - compute platform: Server
 Resources:
+  BuildArtifactsBucket:
+    Type: AWS::S3::Bucket
+
+  BuildArtifactsBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref BuildArtifactsBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: DenyUnEncryptedObjectUploads
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:PutObject'
+            Resource: !Join 
+              - ''
+              - - !GetAtt 
+                  - BuildArtifactsBucket
+                  - Arn
+                - /*
+            Condition:
+              StringNotEquals:
+                's3:x-amz-server-side-encryption': 'aws:kms'
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: !Join 
+              - ''
+              - - !GetAtt 
+                  - BuildArtifactsBucket
+                  - Arn
+                - /*
+            Condition:
+              Bool:
+                'aws:SecureTransport': false
+
+  IAMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  Instance:
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - IAMInstanceProfile
+    Properties:
+      SubnetId: !Ref SubnetId
+      ImageId: !Ref EC2ImageId
+      InstanceType: t2.medium
+      SecurityGroupIds: !Ref SecurityGroups
+      AvailabilityZone: !Ref AvailabilityZone
+      KeyName: !Ref KeyName
+      IamInstanceProfile: !Ref IAMInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 25
+            VolumeType: gp2
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+          Version : "2012-10-17"
+          Statement :
+            - Effect : "Allow"
+              Principal : 
+                Service :
+                  - "ec2.amazonaws.com"
+              Action : 
+                - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2FullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
   CodeDeployServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -39,21 +146,14 @@ Resources:
                 - "codedeploy.amazonaws.com"
             Action:
               - "sts:AssumeRole"
-      # TODO: limit this policy...
-      Policies:
-        - PolicyName: CodeDeployPolicy
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Action:
-                  - "codedeploy:*"
-                Effect: Allow
-                Resource: "*"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 
   CodeDeployApplication:
     Type: AWS::CodeDeploy::Application
     Properties:
       ApplicationName: !Ref ApplicationName
+      ComputePlatform: "Server"
 
   CodeDeployConfiguration:
     Type: AWS::CodeDeploy::DeploymentConfig
@@ -68,12 +168,86 @@ Resources:
       ApplicationName: !Ref ApplicationName
       ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
       DeploymentConfigName: !Ref CodeDeployConfiguration
-      Deployment:
-        Revision:
-          S3Location:
-            Bucket: !Ref BucketName
-            Key: !Ref ArtefactName
-            BundleType: zip
+      Ec2TagFilters:
+        - Key: "Name"
+          Type: "KEY_AND_VALUE"
+          Value: !Ref AWS::StackName
 
+  CodePipelineIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - 'codepipeline.amazonaws.com'
+          Action:
+          - 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+      - PolicyName: logs
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Action:
+                - "s3:GetObject"
+                - "s3:GetObjectVersion"
+                - "s3:GetBucketVersioning"
+                - "s3:PutObject"
+              Effect: Allow
+              Resource:
+                - !Sub "arn:aws:s3:::${BuildArtifactsBucket}"
+                - !Sub "arn:aws:s3:::${BuildArtifactsBucket}/*"
+            - Action:
+              - codedeploy:CreateDeployment
+              - codedeploy:GetApplicationRevision
+              - codedeploy:GetDeployment
+              - codedeploy:GetDeploymentConfig
+              - codedeploy:RegisterApplicationRevision
+              Resource: "*"
+              Effect: Allow
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Location: !Ref BuildArtifactsBucket
+        Type: S3
+      Name: "DeployHelloWorld"
+      RoleArn: !GetAtt CodePipelineIAMRole.Arn
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              OutputArtifacts:
+                - Name: SourceZip
+              Configuration:
+                Owner: !Ref GitHubOwner
+                Repo: !Ref RepositoryName
+                Branch: !Ref BranchName
+                OAuthToken: !Ref GitHubOAuthToken
+                PollForSourceChanges: false
+              RunOrder: 1
+        - Name: Deploy
+          Actions:
+            - Name: CodeDeploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CodeDeploy
+                Version: 1
+              Configuration:
+                ApplicationName: !Ref CodeDeployApplication
+                DeploymentGroupName: !Ref CodeDeployDeploymentGroup
+              InputArtifacts:
+                - Name: SourceZip
+              RunOrder: 2
 
 # Outputs:
