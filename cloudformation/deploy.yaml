@@ -173,6 +173,23 @@ Resources:
           Type: "KEY_AND_VALUE"
           Value: !Ref AWS::StackName
 
+  PipelineWebhook:
+    Type: 'AWS::CodePipeline::Webhook'
+    Properties:
+      Authentication: GITHUB_HMAC
+      AuthenticationConfiguration:
+        SecretToken: !Ref GitHubSecret
+      Filters:
+        - JsonPath: $.ref
+          MatchEquals: 'refs/heads/{Branch}'
+      TargetPipeline: !Ref Pipeline
+      TargetAction: SourceAction
+      Name: PipelineWebhookHelloworldWebsite
+      TargetPipelineVersion: !GetAtt 
+        - Pipeline
+        - Version
+      RegisterWithThirdParty: true
+  
   CodePipelineIAMRole:
     Type: 'AWS::IAM::Role'
     Properties:
