@@ -812,4 +812,31 @@ Resources:
 </p>
 </details>
 
-### Setup the pipeline [WIP]
+### Setup the pipeline
+
+1) Access the AWS web console.
+2) Go to the service `CloudFormation`.
+3) Click on `Create Stack` => `With new resources` 
+4) Select `Upload a template file`
+5) Click on `Choose file`
+6) Upload the file `deploy.yml`
+7) Insert all the parameters (insert a name that you can recognize)
+8) Click `Next` two times
+9) Scroll at the end of the page
+10) Select `I acknowledge that AWS CloudFormation might create IAM resources.`
+11) Click `Create stack`
+
+### Access Your Pipeline
+
+1) Access the AWS web console.
+2) Go to the service `CodePipeline`.
+3) Select the pipeline with containing your name.
+4) You should have two steps marked with a green flag. If it's not the case then click the `Release change` button.
+5) When everything is gree then it's time to find your running web server.
+
+### Find Your Instance
+
+1) Access the AWS web console.
+2) Go to the service `EC2`
+3) Click `Instances` on the left column
+4) Search the instance containing your name
