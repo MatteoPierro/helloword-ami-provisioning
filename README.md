@@ -482,7 +482,7 @@ Outputs:
 2) Go to the service `EC2`
 3) Click `AMIs` on the left column
 4) Search the ami containing your name
-5) save the `AMI ID`, you will need it for the second part.
+5) take note of the `AMI ID`, you will need it for the second part.
 
 ## (Part 2) Web Application
 
@@ -821,9 +821,11 @@ Resources:
 4) Select `Upload a template file`
 5) Click on `Choose file`
 6) Upload the file `deploy.yml`
-7) Insert all the parameters (insert a name that you can recognize)
+7) Insert all the parameters 
+   - insert a name that you can recognize
+   - Insert the ami id that you got during part 1
 8) Click `Next` two times
-9) Scroll at the end of the page
+9)  Scroll at the end of the page
 10) Select `I acknowledge that AWS CloudFormation might create IAM resources.`
 11) Click `Create stack`
 
@@ -841,3 +843,4 @@ Resources:
 2) Go to the service `EC2`
 3) Click `Instances` on the left column
 4) Search the instance containing your name
+5) Click on the instance and in the `Description` take note of the `Private IPs`, you will need it to expose your web-server. 
