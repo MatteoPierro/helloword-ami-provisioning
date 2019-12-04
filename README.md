@@ -23,7 +23,11 @@
 
 take note of the generate token, you will need it later when you create the pipeline in `Code Pipeline`.
 
-## Create a GitHub Repository
+## (Part 1) Provision the Web Server
+
+### Create a GitHub Repository
+
+Create a github repo and add the following files.
 
 ### AMI Provisioning
 
@@ -449,6 +453,363 @@ Outputs:
 </p>
 </details>
 
-## Setup the pipeline
+### Setup the pipeline
 
-### TODO insstruction about how to run the CloudFormation
+1) Access the AWS web console.
+2) Go to the service `CloudFormation`.
+3) Click on `Create Stack` => `With new resources` 
+4) Select `Upload a template file`
+5) Click on `Choose file`
+6) Upload the file `pipeline.yml`
+7) Insert all the parameters (insert a name that you can recognize)
+8) Click `Next` two times
+9) Scroll at the end of the page
+10) Select `I acknowledge that AWS CloudFormation might create IAM resources.`
+11) Click `Create stack`
+
+### Access Your Pipeline
+
+1) Access the AWS web console.
+2) Go to the service `CodePipeline`.
+3) Select the pipeline with containing your name.
+4) You should have two steps marked with a green flag. If it's not the case then click the `Release change` button.
+5) When everything is gree then it's time to find your ami.
+
+### Find Your Ami
+
+1) Access the AWS web console.
+2) Go to the service `EC2`
+3) Click `AMIs` on the left column
+4) Search the ami containing your name
+5) save the `AMI ID`, you will need it for the second part.
+
+## (Part 2) Web Application
+
+### Create Another GitHub Repository
+
+### Add homepage
+
+Create the file `index.html`:
+
+<details>
+  <summary>  index.html </summary>
+  <p>
+
+```html
+<h1> Hello World! </h1>
+```
+</p>
+</details>
+
+### Add CodeDeploy specifications
+
+The deployment is performed by CloudDeploy.
+
+Create the file `appspec.yml`
+
+<details>
+  <summary>  appspec.yml </summary>
+  <p>
+
+```yml
+version: 0.0
+os: linux
+files:
+  - source: /index.html
+    destination: /usr/etc/website/html
+```
+
+  </p>
+</details>
+
+### Web Server Cloudformation
+
+In order to glue everything together we are going to use CloudFormation.
+We will provision the following services:
+- CodePipeline: it will be triggered for all the changes on the repo and it will change the web site via CodeBuild.
+- CodeDeploy: il will deploy a new version of the website.
+- EC2: the machine where we will run the web server.
+
+Create the file `deploy.yml`:
+
+<details>
+  <summary>  deploy.yml </summary>
+  <p>
+
+```yml
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: helloworld-application
+
+  BranchName:
+    Description: GitHub branch name
+    Type: String
+    Default: master
+
+  RepositoryName:
+    Description: GitHub repository name
+    Type: String
+    Default: test
+
+  GitHubOwner:
+    Type: String
+
+  GitHubSecret:
+    Type: String
+    NoEcho: true
+
+  GitHubOAuthToken:
+    Type: String
+    NoEcho: true
+
+  EC2ImageId:
+    Type: String
+    Description: The AMI id that will be used for the EC2 instance.
+
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: The subnet in which to start up the EC2 instance.
+
+  SecurityGroups:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: The security groups to attach to the EC2 instance.
+
+  AvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: The availability zone where the EC2 instance will be launched.
+    Default: eu-west-1a
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: The key-pair name which will be used to authenticate users that SSH into the machine.
+    Default: default
+
+# what we'll need:
+# - deployment group
+# - deployment application
+# - s3 bucket from where the source should come
+# - service role
+# - compute platform: Server
+Resources:
+  BuildArtifactsBucket:
+    Type: AWS::S3::Bucket
+
+  BuildArtifactsBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref BuildArtifactsBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: DenyUnEncryptedObjectUploads
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:PutObject'
+            Resource: !Join 
+              - ''
+              - - !GetAtt 
+                  - BuildArtifactsBucket
+                  - Arn
+                - /*
+            Condition:
+              StringNotEquals:
+                's3:x-amz-server-side-encryption': 'aws:kms'
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: !Join 
+              - ''
+              - - !GetAtt 
+                  - BuildArtifactsBucket
+                  - Arn
+                - /*
+            Condition:
+              Bool:
+                'aws:SecureTransport': false
+
+  IAMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  Instance:
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - IAMInstanceProfile
+    Properties:
+      SubnetId: !Ref SubnetId
+      ImageId: !Ref EC2ImageId
+      InstanceType: t2.medium
+      SecurityGroupIds: !Ref SecurityGroups
+      AvailabilityZone: !Ref AvailabilityZone
+      KeyName: !Ref KeyName
+      IamInstanceProfile: !Ref IAMInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 25
+            VolumeType: gp2
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+          Version : "2012-10-17"
+          Statement :
+            - Effect : "Allow"
+              Principal : 
+                Service :
+                  - "ec2.amazonaws.com"
+              Action : 
+                - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2FullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+  CodeDeployServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "codedeploy.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Ref ApplicationName
+      ComputePlatform: "Server"
+
+  CodeDeployConfiguration:
+    Type: AWS::CodeDeploy::DeploymentConfig
+    Properties:
+      MinimumHealthyHosts:
+        Type: FLEET_PERCENT
+        Value: 0
+
+  CodeDeployDeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties:
+      ApplicationName: !Ref ApplicationName
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
+      DeploymentConfigName: !Ref CodeDeployConfiguration
+      Ec2TagFilters:
+        - Key: "Name"
+          Type: "KEY_AND_VALUE"
+          Value: !Ref AWS::StackName
+
+  PipelineWebhook:
+    Type: 'AWS::CodePipeline::Webhook'
+    Properties:
+      Authentication: GITHUB_HMAC
+      AuthenticationConfiguration:
+        SecretToken: !Ref GitHubSecret
+      Filters:
+        - JsonPath: $.ref
+          MatchEquals: 'refs/heads/{Branch}'
+      TargetPipeline: !Ref Pipeline
+      TargetAction: SourceAction
+      Name: PipelineWebhookHelloworldWebsite
+      TargetPipelineVersion: !GetAtt 
+        - Pipeline
+        - Version
+      RegisterWithThirdParty: true
+  
+  CodePipelineIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - 'codepipeline.amazonaws.com'
+          Action:
+          - 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+      - PolicyName: logs
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Action:
+                - "s3:GetObject"
+                - "s3:GetObjectVersion"
+                - "s3:GetBucketVersioning"
+                - "s3:PutObject"
+              Effect: Allow
+              Resource:
+                - !Sub "arn:aws:s3:::${BuildArtifactsBucket}"
+                - !Sub "arn:aws:s3:::${BuildArtifactsBucket}/*"
+            - Action:
+              - codedeploy:CreateDeployment
+              - codedeploy:GetApplicationRevision
+              - codedeploy:GetDeployment
+              - codedeploy:GetDeploymentConfig
+              - codedeploy:RegisterApplicationRevision
+              Resource: "*"
+              Effect: Allow
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Location: !Ref BuildArtifactsBucket
+        Type: S3
+      Name: "DeployHelloWorld"
+      RoleArn: !GetAtt CodePipelineIAMRole.Arn
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              OutputArtifacts:
+                - Name: SourceZip
+              Configuration:
+                Owner: !Ref GitHubOwner
+                Repo: !Ref RepositoryName
+                Branch: !Ref BranchName
+                OAuthToken: !Ref GitHubOAuthToken
+                PollForSourceChanges: false
+              RunOrder: 1
+        - Name: Deploy
+          Actions:
+            - Name: CodeDeploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CodeDeploy
+                Version: 1
+              Configuration:
+                ApplicationName: !Ref CodeDeployApplication
+                DeploymentGroupName: !Ref CodeDeployDeploymentGroup
+              InputArtifacts:
+                - Name: SourceZip
+              RunOrder: 2
+
+# Outputs:
+
+```
+</p>
+</details>
+
+### Setup the pipeline [WIP]
