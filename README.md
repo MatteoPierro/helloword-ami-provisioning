@@ -94,13 +94,14 @@ The provisioning of the ami will be done via Ansible.
 The build is performed with Packer and orchestrated by CodeBuild.
 
 1. Create the file `packer_cis.json`:
+  Make sure to change the `"ami_name"` key replacing the `your-name-here` placehoder with your name eg: `"ami_name": "skryv-{{isotime \"02-Jan-06 03_04_05\"}}`
    ```json
    {
     "variables": {
         "vpc": "{{env `BUILD_VPC_ID`}}",
         "subnet": "{{env `BUILD_SUBNET_ID`}}",
         "aws_region": "{{env `AWS_REGION`}}",
-        "ami_name": "Prod-CIS-Latest-AMZN-{{isotime \"02-Jan-06 03_04_05\"}}"
+        "ami_name": "your-name-here-{{isotime \"02-Jan-06 03_04_05\"}}"
     },
     "builders": [{
         "name": "AWS AMI Builder - CIS",
