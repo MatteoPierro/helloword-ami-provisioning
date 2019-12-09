@@ -7,7 +7,6 @@ Parameters:
   RepositoryName:
     Description: GitHub repository name
     Type: String
-    Default: test
   GitHubOwner:
     Type: String
   GitHubSecret:
@@ -16,10 +15,6 @@ Parameters:
   GitHubOAuthToken:
     Type: String
     NoEcho: true
-  ServiceName:
-    Description: Name for this service; used in pipeline names
-    Type: String
-    Default: HelloWorld
   CodeBuildEnvironment:
     Type: String
     Default: "eb-python-2.6-amazonlinux-64:2.1.6"
@@ -32,13 +27,9 @@ Parameters:
     Description: Public Subnet ID that AMI Builder will use to launch temporary resource
 
 Resources:
-
-  #############
-  # Pipeline  #
-  #############
-
   BuildArtifactsBucket:
     Type: AWS::S3::Bucket
+    BucketName: ${AWS::StackName}-build-artifacts
 
   BuildArtifactsBucketPolicy:
     Type: 'AWS::S3::BucketPolicy'
@@ -51,9 +42,9 @@ Resources:
             Effect: Deny
             Principal: '*'
             Action: 's3:PutObject'
-            Resource: !Join 
+            Resource: !Join
               - ''
-              - - !GetAtt 
+              - - !GetAtt
                   - BuildArtifactsBucket
                   - Arn
                 - /*
@@ -64,16 +55,16 @@ Resources:
             Effect: Deny
             Principal: '*'
             Action: 's3:*'
-            Resource: !Join 
+            Resource: !Join
               - ''
-              - - !GetAtt 
+              - - !GetAtt
                   - BuildArtifactsBucket
                   - Arn
                 - /*
             Condition:
               Bool:
                 'aws:SecureTransport': false
-  
+
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -89,7 +80,7 @@ Resources:
               Service:
                 - codebuild.amazonaws.com
       Policies:
-        - PolicyName: CodeBuildAccess
+        - PolicyName: !Sub ${AWS::StackName}-codebuild-access
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -100,8 +91,8 @@ Resources:
                   - "logs:CreateLogStream"
                   - "logs:PutLogEvents"
                 Resource:
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ServiceName}_build"
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ServiceName}_build:*"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${AWS::StackName}_build"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${AWS::StackName}_build:*"
               - Sid: "CodeBuildToS3ArtifactRepo"
                 Effect: Allow
                 Action:
@@ -113,7 +104,7 @@ Resources:
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub "${ServiceName}_AMI_provisioning_build"
+      Name: !Sub ${AWS::StackName}_AMI_provisioning_build
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -142,8 +133,8 @@ Resources:
           MatchEquals: 'refs/heads/{Branch}'
       TargetPipeline: !Ref Pipeline
       TargetAction: SourceAction
-      Name: PipelineWebhook
-      TargetPipelineVersion: !GetAtt 
+      Name: !Sub ${AWS::StackName}-pipeline-webhook
+      TargetPipelineVersion: !GetAtt
         - Pipeline
         - Version
       RegisterWithThirdParty: true
@@ -161,7 +152,7 @@ Resources:
               Service:
                 - codepipeline.amazonaws.com
       Policies:
-        - PolicyName: CodePipelineS3ArtifactAccess
+        - PolicyName: !Sub ${AWS::StackName}-s3-access
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -174,7 +165,7 @@ Resources:
                 Resource:
                   - !Sub "arn:aws:s3:::${BuildArtifactsBucket}"
                   - !Sub "arn:aws:s3:::${BuildArtifactsBucket}/*"
-        - PolicyName: CodePipelineBuildAccess
+        - PolicyName: !Sub ${AWS::StackName}-codepipeline-access
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -184,14 +175,14 @@ Resources:
                   - "codebuild:BatchGetBuilds"
                 Effect: Allow
                 Resource: !GetAtt CodeBuildProject.Arn
-                
+
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
       ArtifactStore:
         Location: !Ref BuildArtifactsBucket
         Type: S3
-      Name: !Sub ${ServiceName}_AMI_provisioning_pipeline
+      Name: !Sub ${AWS::StackName}_AMI_provisioning_pipeline
       RoleArn: !GetAtt PipelineExecutionRole.Arn
       Stages:
         - Name: Source

@@ -1,61 +1,43 @@
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
-  ApplicationName:
-    Type: String
-    Default: helloworld-application
-
   BranchName:
     Description: GitHub branch name
     Type: String
     Default: master
-
   RepositoryName:
     Description: GitHub repository name
     Type: String
-    Default: test
-
   GitHubOwner:
     Type: String
-
   GitHubSecret:
     Type: String
     NoEcho: true
-
   GitHubOAuthToken:
     Type: String
     NoEcho: true
-
   EC2ImageId:
     Type: String
     Description: The AMI id that will be used for the EC2 instance.
-
   SubnetId:
     Type: AWS::EC2::Subnet::Id
     Description: The subnet in which to start up the EC2 instance.
-
   SecurityGroups:
     Type: List<AWS::EC2::SecurityGroup::Id>
     Description: The security groups to attach to the EC2 instance.
-
   AvailabilityZone:
     Type: AWS::EC2::AvailabilityZone::Name
     Description: The availability zone where the EC2 instance will be launched.
     Default: eu-west-1a
-
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
     Description: The key-pair name which will be used to authenticate users that SSH into the machine.
     Default: default
 
-# what we'll need:
-# - deployment group
-# - deployment application
-# - s3 bucket from where the source should come
-# - service role
-# - compute platform: Server
 Resources:
   BuildArtifactsBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-build-artefacts
 
   BuildArtifactsBucketPolicy:
     Type: 'AWS::S3::BucketPolicy'
@@ -68,9 +50,9 @@ Resources:
             Effect: Deny
             Principal: '*'
             Action: 's3:PutObject'
-            Resource: !Join 
+            Resource: !Join
               - ''
-              - - !GetAtt 
+              - - !GetAtt
                   - BuildArtifactsBucket
                   - Arn
                 - /*
@@ -81,9 +63,9 @@ Resources:
             Effect: Deny
             Principal: '*'
             Action: 's3:*'
-            Resource: !Join 
+            Resource: !Join
               - ''
-              - - !GetAtt 
+              - - !GetAtt
                   - BuildArtifactsBucket
                   - Arn
                 - /*
@@ -125,10 +107,10 @@ Resources:
           Version : "2012-10-17"
           Statement :
             - Effect : "Allow"
-              Principal : 
+              Principal :
                 Service :
                   - "ec2.amazonaws.com"
-              Action : 
+              Action :
                 - "sts:AssumeRole"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEC2FullAccess
@@ -152,7 +134,7 @@ Resources:
   CodeDeployApplication:
     Type: AWS::CodeDeploy::Application
     Properties:
-      ApplicationName: !Ref ApplicationName
+      ApplicationName: !Sub ${AWS::StackName}-codedeploy-app
       ComputePlatform: "Server"
 
   CodeDeployConfiguration:
@@ -165,7 +147,7 @@ Resources:
   CodeDeployDeploymentGroup:
     Type: AWS::CodeDeploy::DeploymentGroup
     Properties:
-      ApplicationName: !Ref ApplicationName
+      ApplicationName: !Sub ${AWS::StackName}-codedeploy-app
       ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
       DeploymentConfigName: !Ref CodeDeployConfiguration
       Ec2TagFilters:
@@ -184,12 +166,12 @@ Resources:
           MatchEquals: 'refs/heads/{Branch}'
       TargetPipeline: !Ref Pipeline
       TargetAction: SourceAction
-      Name: PipelineWebhookHelloworldWebsite
-      TargetPipelineVersion: !GetAtt 
+      Name: !Sub ${AWS::StackName}-pipeline-webhook
+      TargetPipelineVersion: !GetAtt
         - Pipeline
         - Version
       RegisterWithThirdParty: true
-  
+
   CodePipelineIAMRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -204,7 +186,7 @@ Resources:
           - 'sts:AssumeRole'
       Path: '/'
       Policies:
-      - PolicyName: logs
+      - PolicyName: !Sub ${AWS::StackName}-codepipeline-access
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
@@ -232,7 +214,7 @@ Resources:
       ArtifactStore:
         Location: !Ref BuildArtifactsBucket
         Type: S3
-      Name: "DeployHelloWorld"
+      Name: !Sub ${AWS::StackName}-helloworld-deploy
       RoleArn: !GetAtt CodePipelineIAMRole.Arn
       Stages:
         - Name: Source
@@ -261,10 +243,8 @@ Resources:
                 Provider: CodeDeploy
                 Version: 1
               Configuration:
-                ApplicationName: !Ref CodeDeployApplication
+                ApplicationName: !Sub ${AWS::StackName}-codedeploy-app
                 DeploymentGroupName: !Ref CodeDeployDeploymentGroup
               InputArtifacts:
                 - Name: SourceZip
               RunOrder: 2
-
-# Outputs:
