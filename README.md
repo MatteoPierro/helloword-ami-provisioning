@@ -15,7 +15,7 @@
   - repo:status
   - repo_deployment
   - public_repo
-  - repo:invite 
+  - repo:invite
 
 - admin:repo_hook
   - write:repo_hook
@@ -221,21 +221,14 @@ Parameters:
   RepositoryName:
     Description: GitHub repository name
     Type: String
-    Default: test
   GitHubOwner:
     Type: String
   GitHubSecret:
-    Description: Secret for the webhook
     Type: String
     NoEcho: true
   GitHubOAuthToken:
-    Description: Type the token generate at the first point of this guide
     Type: String
     NoEcho: true
-  ServiceName:
-    Description: Name for this service; used in pipeline names
-    Type: String
-    Default: HelloWorld
   CodeBuildEnvironment:
     Type: String
     Default: "eb-python-2.6-amazonlinux-64:2.1.6"
@@ -248,13 +241,9 @@ Parameters:
     Description: Public Subnet ID that AMI Builder will use to launch temporary resource
 
 Resources:
-
-  #############
-  # Pipeline  #
-  #############
-
   BuildArtifactsBucket:
     Type: AWS::S3::Bucket
+    BucketName: ${AWS::StackName}-build-artifacts
 
   BuildArtifactsBucketPolicy:
     Type: 'AWS::S3::BucketPolicy'
@@ -267,9 +256,9 @@ Resources:
             Effect: Deny
             Principal: '*'
             Action: 's3:PutObject'
-            Resource: !Join 
+            Resource: !Join
               - ''
-              - - !GetAtt 
+              - - !GetAtt
                   - BuildArtifactsBucket
                   - Arn
                 - /*
@@ -280,16 +269,16 @@ Resources:
             Effect: Deny
             Principal: '*'
             Action: 's3:*'
-            Resource: !Join 
+            Resource: !Join
               - ''
-              - - !GetAtt 
+              - - !GetAtt
                   - BuildArtifactsBucket
                   - Arn
                 - /*
             Condition:
               Bool:
                 'aws:SecureTransport': false
-  
+
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -305,7 +294,7 @@ Resources:
               Service:
                 - codebuild.amazonaws.com
       Policies:
-        - PolicyName: CodeBuildAccess
+        - PolicyName: !Sub ${AWS::StackName}-codebuild-access
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -316,8 +305,8 @@ Resources:
                   - "logs:CreateLogStream"
                   - "logs:PutLogEvents"
                 Resource:
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ServiceName}_build"
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ServiceName}_build:*"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${AWS::StackName}_build"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${AWS::StackName}_build:*"
               - Sid: "CodeBuildToS3ArtifactRepo"
                 Effect: Allow
                 Action:
@@ -329,7 +318,7 @@ Resources:
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub "${ServiceName}_AMI_provisioning_build"
+      Name: !Sub ${AWS::StackName}_AMI_provisioning_build
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -358,8 +347,8 @@ Resources:
           MatchEquals: 'refs/heads/{Branch}'
       TargetPipeline: !Ref Pipeline
       TargetAction: SourceAction
-      Name: PipelineWebhook
-      TargetPipelineVersion: !GetAtt 
+      Name: !Sub ${AWS::StackName}-pipeline-webhook
+      TargetPipelineVersion: !GetAtt
         - Pipeline
         - Version
       RegisterWithThirdParty: true
@@ -377,7 +366,7 @@ Resources:
               Service:
                 - codepipeline.amazonaws.com
       Policies:
-        - PolicyName: CodePipelineS3ArtifactAccess
+        - PolicyName: !Sub ${AWS::StackName}-s3-access
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -390,7 +379,7 @@ Resources:
                 Resource:
                   - !Sub "arn:aws:s3:::${BuildArtifactsBucket}"
                   - !Sub "arn:aws:s3:::${BuildArtifactsBucket}/*"
-        - PolicyName: CodePipelineBuildAccess
+        - PolicyName: !Sub ${AWS::StackName}-codepipeline-access
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -400,14 +389,14 @@ Resources:
                   - "codebuild:BatchGetBuilds"
                 Effect: Allow
                 Resource: !GetAtt CodeBuildProject.Arn
-                
+
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
       ArtifactStore:
         Location: !Ref BuildArtifactsBucket
         Type: S3
-      Name: !Sub ${ServiceName}_AMI_provisioning_pipeline
+      Name: !Sub ${AWS::StackName}_AMI_provisioning_pipeline
       RoleArn: !GetAtt PipelineExecutionRole.Arn
       Stages:
         - Name: Source
@@ -458,7 +447,7 @@ Outputs:
 
 1) Access the AWS web console.
 2) Go to the service `CloudFormation`.
-3) Click on `Create Stack` => `With new resources` 
+3) Click on `Create Stack` => `With new resources`
 4) Select `Upload a template file`
 5) Click on `Choose file`
 6) Upload the file `pipeline.yml`
@@ -540,62 +529,44 @@ Create the file `deploy.yml`:
 ```yml
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
-  ApplicationName:
-    Type: String
-    Default: helloworld-application
-
   BranchName:
     Description: GitHub branch name
     Type: String
     Default: master
-
   RepositoryName:
     Description: GitHub repository name
     Type: String
-    Default: test
-
   GitHubOwner:
     Type: String
-
   GitHubSecret:
     Type: String
     NoEcho: true
-
   GitHubOAuthToken:
     Type: String
     NoEcho: true
-
   EC2ImageId:
     Type: String
     Description: The AMI id that will be used for the EC2 instance.
-
   SubnetId:
     Type: AWS::EC2::Subnet::Id
     Description: The subnet in which to start up the EC2 instance.
-
   SecurityGroups:
     Type: List<AWS::EC2::SecurityGroup::Id>
     Description: The security groups to attach to the EC2 instance.
-
   AvailabilityZone:
     Type: AWS::EC2::AvailabilityZone::Name
     Description: The availability zone where the EC2 instance will be launched.
     Default: eu-west-1a
-
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
     Description: The key-pair name which will be used to authenticate users that SSH into the machine.
     Default: default
 
-# what we'll need:
-# - deployment group
-# - deployment application
-# - s3 bucket from where the source should come
-# - service role
-# - compute platform: Server
 Resources:
   BuildArtifactsBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-build-artefacts
 
   BuildArtifactsBucketPolicy:
     Type: 'AWS::S3::BucketPolicy'
@@ -608,9 +579,9 @@ Resources:
             Effect: Deny
             Principal: '*'
             Action: 's3:PutObject'
-            Resource: !Join 
+            Resource: !Join
               - ''
-              - - !GetAtt 
+              - - !GetAtt
                   - BuildArtifactsBucket
                   - Arn
                 - /*
@@ -621,9 +592,9 @@ Resources:
             Effect: Deny
             Principal: '*'
             Action: 's3:*'
-            Resource: !Join 
+            Resource: !Join
               - ''
-              - - !GetAtt 
+              - - !GetAtt
                   - BuildArtifactsBucket
                   - Arn
                 - /*
@@ -665,10 +636,10 @@ Resources:
           Version : "2012-10-17"
           Statement :
             - Effect : "Allow"
-              Principal : 
+              Principal :
                 Service :
                   - "ec2.amazonaws.com"
-              Action : 
+              Action :
                 - "sts:AssumeRole"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEC2FullAccess
@@ -692,7 +663,7 @@ Resources:
   CodeDeployApplication:
     Type: AWS::CodeDeploy::Application
     Properties:
-      ApplicationName: !Ref ApplicationName
+      ApplicationName: !Sub ${AWS::StackName}-codedeploy-app
       ComputePlatform: "Server"
 
   CodeDeployConfiguration:
@@ -705,7 +676,7 @@ Resources:
   CodeDeployDeploymentGroup:
     Type: AWS::CodeDeploy::DeploymentGroup
     Properties:
-      ApplicationName: !Ref ApplicationName
+      ApplicationName: !Sub ${AWS::StackName}-codedeploy-app
       ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
       DeploymentConfigName: !Ref CodeDeployConfiguration
       Ec2TagFilters:
@@ -724,12 +695,12 @@ Resources:
           MatchEquals: 'refs/heads/{Branch}'
       TargetPipeline: !Ref Pipeline
       TargetAction: SourceAction
-      Name: PipelineWebhookHelloworldWebsite
-      TargetPipelineVersion: !GetAtt 
+      Name: !Sub ${AWS::StackName}-pipeline-webhook
+      TargetPipelineVersion: !GetAtt
         - Pipeline
         - Version
       RegisterWithThirdParty: true
-  
+
   CodePipelineIAMRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -744,7 +715,7 @@ Resources:
           - 'sts:AssumeRole'
       Path: '/'
       Policies:
-      - PolicyName: logs
+      - PolicyName: !Sub ${AWS::StackName}-codepipeline-access
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
@@ -772,7 +743,7 @@ Resources:
       ArtifactStore:
         Location: !Ref BuildArtifactsBucket
         Type: S3
-      Name: "DeployHelloWorld"
+      Name: !Sub ${AWS::StackName}-helloworld-deploy
       RoleArn: !GetAtt CodePipelineIAMRole.Arn
       Stages:
         - Name: Source
@@ -801,14 +772,11 @@ Resources:
                 Provider: CodeDeploy
                 Version: 1
               Configuration:
-                ApplicationName: !Ref CodeDeployApplication
+                ApplicationName: !Sub ${AWS::StackName}-codedeploy-app
                 DeploymentGroupName: !Ref CodeDeployDeploymentGroup
               InputArtifacts:
                 - Name: SourceZip
               RunOrder: 2
-
-# Outputs:
-
 ```
 </p>
 </details>
@@ -817,11 +785,11 @@ Resources:
 
 1) Access the AWS web console.
 2) Go to the service `CloudFormation`.
-3) Click on `Create Stack` => `With new resources` 
+3) Click on `Create Stack` => `With new resources`
 4) Select `Upload a template file`
 5) Click on `Choose file`
 6) Upload the file `deploy.yml`
-7) Insert all the parameters 
+7) Insert all the parameters
    - insert a name that you can recognize
    - Insert the ami id that you got during part 1
 8) Click `Next` two times
@@ -843,4 +811,37 @@ Resources:
 2) Go to the service `EC2`
 3) Click `Instances` on the left column
 4) Search the instance containing your name
-5) Click on the instance and in the `Description` take note of the `Private IPs`, you will need it to expose your web-server. 
+5) Click on the instance and in the `Description` take note of the `Private IPs`, you will need it to expose your web-server.
+
+### Exposing Your Instance
+
+As discussed in the presentation, we will use a reverse proxy to expose your instance to the internet. That way we only take up 1 public IP address.
+
+Go to this [repository](https://github.com/arnoschutijzer/aws-workshop-reverse-proxy) and fork it to your own github account.
+
+Clone this repository locally and add a commit adding your instance to the `nginx.conf` file.
+
+Here's example of how to add your configuration:
+
+```
+worker_processes 1;
+events { worker_connections 1024; }
+http {
+  server {
+    listen 80;
+    server_name localhost;
+    location / {
+      proxy_pass http://example.com/;
+    }
+    location /other-example {
+      proxy_pass http://ifconfig.co/;
+    }
++    location /my-instance {
++      proxy_pass http://my-private-ip/;
++    }
+  }
+```
+
+Commit and push this change to your repository and create a pull request targetting the original repository you forked (https://github.com/arnoschutijzer/aws-workshop-reverse-proxy).
+
+Ping us and we will get your pull request merged ASAP!
