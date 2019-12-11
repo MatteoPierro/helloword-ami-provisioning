@@ -71,7 +71,7 @@ The provisioning of the ami will be done via Ansible.
 
     nginx_http_template_enable: true
     nginx_http_template:
-    default:
+      default:
         template_file: http/default.conf.j2
         conf_file_name: default.conf
         conf_file_location: /etc/nginx/conf.d/
@@ -80,13 +80,13 @@ The provisioning of the ami will be done via Ansible.
         error_page: /usr/share/nginx/html
         autoindex: false
         web_server:
-        locations:
+          locations:
             default:
-            location: /
-            html_file_location: /usr/etc/website/html
-            html_file_name: index.html
-            autoindex: false
-        http_demo_conf: false
+              location: /
+              html_file_location: /usr/etc/website/html
+              html_file_name: index.html
+              autoindex: false
+          http_demo_conf: false
     ```
 
 ### AMI build steps
