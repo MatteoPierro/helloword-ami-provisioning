@@ -27,7 +27,7 @@ take note of the generate token, you will need it later when you create the pipe
 
 ### Create a GitHub Repository
 
-Create a github repo and add the following files.
+Create a github repo and commit the following files in it.
 
 ### AMI Provisioning
 
@@ -443,6 +443,10 @@ Outputs:
 </p>
 </details>
 
+### Access the AWS web console
+
+Access the [Skryv AWS console](https://skryv-workshop.signin.aws.amazon.com/console) making sure you are located in the `Ireland` region `eu-west-1`.
+
 ### Setup the pipeline
 
 1) Access the AWS web console.
@@ -476,6 +480,8 @@ Outputs:
 ## (Part 2) Web Application
 
 ### Create Another GitHub Repository
+
+Create *another* github repo and commit the following files in it.
 
 ### Add homepage
 
