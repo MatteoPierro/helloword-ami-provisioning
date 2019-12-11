@@ -163,28 +163,28 @@ The build is performed with Packer and orchestrated by CodeBuild.
     version: 0.2
 
     phases:
-    pre_build:
+      pre_build:
         commands:
-        - echo "Installing Packer"
-        - curl -o packer.zip https://releases.hashicorp.com/packer/1.3.3/packer_1.3.3_linux_amd64.zip && unzip packer.zip
-        - echo "Validating Packer template"
-        - ./packer validate packer_cis.json
-    build:
+          - echo "Installing Packer"
+          - curl -o packer.zip https://releases.hashicorp.com/packer/1.3.3/packer_1.3.3_linux_amd64.zip && unzip packer.zip
+          - echo "Validating Packer template"
+          - ./packer validate packer_cis.json
+      build:
         commands:
-        - ./packer build -color=false packer_cis.json | tee build.log
-    post_build:
+          - ./packer build -color=false packer_cis.json | tee build.log
+      post_build:
         commands:
-        - egrep "${AWS_REGION}\:\sami\-" build.log | cut -d' ' -f2 > ami_id.txt
-        # Packer doesn't return non-zero status; we must do that if Packer build failed
-        - test -s ami_id.txt || exit 1
-        - sed -i.bak "s/<<AMI-ID>>/$(cat ami_id.txt)/g" ami_builder_event.json
-        - aws events put-events --entries file://ami_builder_event.json
-        - echo "build completed on `date`"
-    artifacts:
-    files:
-        - ami_builder_event.json
-        - build.log
-    discard-paths: yes
+          - egrep "${AWS_REGION}\:\sami\-" build.log | cut -d' ' -f2 > ami_id.txt
+          # Packer doesn't return non-zero status; we must do that if Packer build failed
+          - test -s ami_id.txt || exit 1
+          - sed -i.bak "s/<<AMI-ID>>/$(cat ami_id.txt)/g" ami_builder_event.json
+          - aws events put-events --entries file://ami_builder_event.json
+          - echo "build completed on `date`"
+      artifacts:
+        files:
+          - ami_builder_event.json
+          - build.log
+      discard-paths: yes
     ```
 3. Create the file `ami_builder_event.json`, we will use to retry the `id` of the AMI:
     ```yml
@@ -469,7 +469,7 @@ Access the [Skryv AWS console](https://skryv-workshop.signin.aws.amazon.com/cons
 2) Go to the service `CodePipeline`.
 3) Select the pipeline with containing your name.
 4) You should have two steps marked with a green flag. If it's not the case then click the `Release change` button.
-5) When everything is gree then it's time to find your ami.
+5) When everything is green then it's time to find your ami.
 
 ### Find Your Ami
 
