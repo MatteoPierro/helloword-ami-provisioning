@@ -443,6 +443,8 @@ Outputs:
 </p>
 </details>
 
+Before you proceed make sure you have committed and pushed all these files.
+
 ### Access the AWS web console
 
 Access the [Skryv AWS console](https://skryv-workshop.signin.aws.amazon.com/console) making sure you are located in the `Ireland` region `eu-west-1`.
@@ -786,6 +788,8 @@ Resources:
 ```
 </p>
 </details>
+
+Before you proceed make sure you have committed and pushed all these files.
 
 ### Setup the pipeline
 
