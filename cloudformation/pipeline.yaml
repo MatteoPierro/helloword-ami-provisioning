@@ -22,9 +22,11 @@ Parameters:
   BuilderVPC:
     Type: AWS::EC2::VPC::Id
     Description: VPC ID that AMI Builder will use to launch temporary resource
-  BuilderPublicSubnet:
+    Default: vpc-0074d4e9b7aaa28a2
+  BuilderSubnet:
     Type: AWS::EC2::Subnet::Id
     Description: Public Subnet ID that AMI Builder will use to launch temporary resource
+    Default: sg-0225b85149d9e1e52
 
 Resources:
   BuildArtifactsBucket:
@@ -118,7 +120,7 @@ Resources:
           - Name: BUILD_VPC_ID
             Value: !Ref BuilderVPC
           - Name: BUILD_SUBNET_ID
-            Value: !Ref BuilderPublicSubnet
+            Value: !Ref BuilderSubnet
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
         Type: CODEPIPELINE

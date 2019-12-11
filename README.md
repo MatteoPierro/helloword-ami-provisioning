@@ -236,9 +236,11 @@ Parameters:
   BuilderVPC:
     Type: AWS::EC2::VPC::Id
     Description: VPC ID that AMI Builder will use to launch temporary resource
-  BuilderPublicSubnet:
+    Default: vpc-0074d4e9b7aaa28a2
+  BuilderSubnet:
     Type: AWS::EC2::Subnet::Id
     Description: Public Subnet ID that AMI Builder will use to launch temporary resource
+    Default: sg-0225b85149d9e1e52
 
 Resources:
   BuildArtifactsBucket:
@@ -332,7 +334,7 @@ Resources:
           - Name: BUILD_VPC_ID
             Value: !Ref BuilderVPC
           - Name: BUILD_SUBNET_ID
-            Value: !Ref BuilderPublicSubnet
+            Value: !Ref BuilderSubnet
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
         Type: CODEPIPELINE
@@ -559,17 +561,15 @@ Parameters:
   SubnetId:
     Type: AWS::EC2::Subnet::Id
     Description: The subnet in which to start up the EC2 instance.
+    Default: subnet-04565b11957a12aeb
   SecurityGroups:
     Type: List<AWS::EC2::SecurityGroup::Id>
     Description: The security groups to attach to the EC2 instance.
+    Default: sg-0c38d6b25c34135f7
   AvailabilityZone:
     Type: AWS::EC2::AvailabilityZone::Name
     Description: The availability zone where the EC2 instance will be launched.
     Default: eu-west-1a
-  KeyName:
-    Type: AWS::EC2::KeyPair::KeyName
-    Description: The key-pair name which will be used to authenticate users that SSH into the machine.
-    Default: default
 
 Resources:
   BuildArtifactsBucket:
@@ -627,7 +627,6 @@ Resources:
       InstanceType: t2.medium
       SecurityGroupIds: !Ref SecurityGroups
       AvailabilityZone: !Ref AvailabilityZone
-      KeyName: !Ref KeyName
       IamInstanceProfile: !Ref IAMInstanceProfile
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
