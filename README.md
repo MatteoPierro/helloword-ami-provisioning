@@ -186,7 +186,7 @@ The build is performed with Packer and orchestrated by CodeBuild.
           - build.log
       discard-paths: yes
     ```
-3. Create the file `ami_builder_event.json`, we will use to retry the `id` of the AMI:
+3. Create the file `ami_builder_event.json`, we will use to identify the output AMI ID:
     ```yml
     [
         {
@@ -243,7 +243,8 @@ Parameters:
 Resources:
   BuildArtifactsBucket:
     Type: AWS::S3::Bucket
-    BucketName: ${AWS::StackName}-build-artifacts
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-build-artifacts
 
   BuildArtifactsBucketPolicy:
     Type: 'AWS::S3::BucketPolicy'

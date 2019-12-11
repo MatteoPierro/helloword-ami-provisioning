@@ -29,7 +29,8 @@ Parameters:
 Resources:
   BuildArtifactsBucket:
     Type: AWS::S3::Bucket
-    BucketName: ${AWS::StackName}-build-artifacts
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-build-artifacts
 
   BuildArtifactsBucketPolicy:
     Type: 'AWS::S3::BucketPolicy'
