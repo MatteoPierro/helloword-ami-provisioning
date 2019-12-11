@@ -641,13 +641,13 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-          Version : "2012-10-17"
-          Statement :
-            - Effect : "Allow"
-              Principal :
-                Service :
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Principal:
+                Service:
                   - "ec2.amazonaws.com"
-              Action :
+              Action:
                 - "sts:AssumeRole"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEC2FullAccess
