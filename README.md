@@ -180,10 +180,10 @@ The build is performed with Packer and orchestrated by CodeBuild.
           - sed -i.bak "s/<<AMI-ID>>/$(cat ami_id.txt)/g" ami_builder_event.json
           - aws events put-events --entries file://ami_builder_event.json
           - echo "build completed on `date`"
-      artifacts:
-        files:
-          - ami_builder_event.json
-          - build.log
+    artifacts:
+      files:
+        - ami_builder_event.json
+        - build.log
       discard-paths: yes
     ```
 3. Create the file `ami_builder_event.json`, we will use to identify the output AMI ID:
