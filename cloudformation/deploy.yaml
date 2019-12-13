@@ -15,7 +15,7 @@ Parameters:
   GitHubOAuthToken:
     Type: String
     NoEcho: true
-  EC2ImageId:
+  ImageId:
     Type: String
     Description: The AMI id that will be used for the EC2 instance.
   SubnetId:
@@ -83,7 +83,7 @@ Resources:
       - IAMInstanceProfile
     Properties:
       SubnetId: !Ref SubnetId
-      ImageId: !Ref EC2ImageId
+      ImageId: !Ref ImageId
       InstanceType: t2.medium
       SecurityGroupIds: !Ref SecurityGroups
       AvailabilityZone: !Ref AvailabilityZone
@@ -207,6 +207,7 @@ Resources:
 
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
+    DependsOn: Instance
     Properties:
       ArtifactStore:
         Location: !Ref BuildArtifactsBucket
